@@ -14,7 +14,7 @@ miniws (minimalist web sever) is a very simple web server written in golang. its
 ## how to configure
 in your config folder you will find `ipfilter.conf` and `useragentfilter.conf`
 
-both files use the same format: specify `allow|deny` in the first row to tell miniws to treat the file as a whitelist or a blacklist, then specify one ip/user-agent per line. 
+both files use the same format: specify `allow|deny` in the first line to tell miniws to treat the file as a whitelist or a blacklist, then specify one ip/user-agent per line. 
 
 ## logging
 
