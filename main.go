@@ -59,12 +59,12 @@ func get(writer http.ResponseWriter, req *http.Request) {
 		strings.Split(req.RemoteAddr, ":")[0], //remote address
 		"-",                                   //identifier (can't get)
 		getOrDash(req.URL.User.Username()),    //username
-		time.Now().Format("02/Jan/2006:15:04:05 -0700"),                               //timestamp
-		req.Method+" "+req.URL.Path+" "+getHttpString(req.ProtoMajor, req.ProtoMinor), //HTTP version
-		strconv.Itoa(respStatusCode),                                                  //response code
-		strconv.Itoa(sentBytes),                                                       //# of sent bytes
-		req.Referer(),                                                                 //Referer
-		req.UserAgent(),                                                               //User Agent
+		time.Now().Format("02/Jan/2006:15:04:05 -0700"),                                      //timestamp
+		req.Method+" "+req.URL.Path+" "+getHttpVersionString(req.ProtoMajor, req.ProtoMinor), //HTTP version
+		strconv.Itoa(respStatusCode),                                                         //response code
+		strconv.Itoa(sentBytes),                                                              //# of sent bytes
+		req.Referer(),                                                                        //Referer
+		req.UserAgent(),                                                                      //User Agent
 	)
 }
 
@@ -103,27 +103,27 @@ func logAccess(
 		remoteAddr, identifier, authuser, timestamp, request, status, bytesSent, referer, user_agent,
 	)
 	os.Mkdir(_logFolder, os.ModeDir|os.ModePerm)
-	file, err := os.OpenFile(assureSlash(_logFolder)+PATH_ACCESSLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
+	file, err := os.OpenFile(ensureSlashSuffix(_logFolder)+PATH_ACCESSLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 
 	if err != nil {
-		log.Println("couldn't open log access file at", assureSlash(_logFolder)+PATH_ACCESSLOG)
+		log.Println("couldn't open log access file at", ensureSlashSuffix(_logFolder)+PATH_ACCESSLOG)
 	}
 	defer file.Close()
 	file.WriteString(out)
 }
 
 func logError(str string) {
-	file, err := os.OpenFile(assureSlash(_logFolder)+PATH_ERRORLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 	os.Mkdir(_logFolder, os.ModeDir|os.ModePerm)
+	file, err := os.OpenFile(ensureSlashSuffix(_logFolder)+PATH_ERRORLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 
 	if err != nil {
-		log.Println("couldn't open log error file at", assureSlash(_logFolder)+PATH_ERRORLOG)
+		log.Println("couldn't open log error file at", ensureSlashSuffix(_logFolder)+PATH_ERRORLOG)
 	}
 	defer file.Close()
 	file.WriteString(str + "\n")
 }
 
-func getHttpString(major, minor int) string {
+func getHttpVersionString(major, minor int) string {
 	return "HTTP/" + strconv.Itoa(major) + "." + strconv.Itoa(minor)
 }
 
@@ -134,6 +134,6 @@ func getOrDash(str string) string {
 	return str
 }
 
-func assureSlash(str string) string {
+func ensureSlashSuffix(str string) string {
 	return strings.TrimSuffix(str, "/") + "/"
 }
