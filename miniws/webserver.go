@@ -22,18 +22,20 @@ type WebServer struct {
 	logger              *Logger
 	port                int
 	configFolder        string
+	wwwFolder           string
 	ipFilter            []string
 	userAgentFilter     []string
 	ipFilterMode        FilterMode
 	userAgentFilterMode FilterMode
 }
 
-func NewWebServer(port_ int, logFolder_, configFolder_ string) *WebServer {
+func NewWebServer(port_ int, logFolder_, configFolder_, wwwFolder_ string) *WebServer {
 
 	return &WebServer{
 		logger:              NewLogger(logFolder_),
 		port:                port_,
 		configFolder:        configFolder_,
+		wwwFolder:           wwwFolder_,
 		ipFilter:            make([]string, 0),
 		userAgentFilter:     make([]string, 0),
 		ipFilterMode:        FILTER_MODE_BLACKLIST,
@@ -42,6 +44,11 @@ func NewWebServer(port_ int, logFolder_, configFolder_ string) *WebServer {
 }
 
 func (ws *WebServer) Run() {
+
+	_, err := os.Stat(ws.wwwFolder)
+	if errors.Is(err, os.ErrNotExist) {
+		log.Fatalln("Fatal: www folder " + ws.wwwFolder + " does not exist")
+	}
 
 	ws.ipFilterMode, ws.ipFilter = ws.parseFilterPanics(FILENAME_IPFILTER)
 	ws.userAgentFilterMode, ws.userAgentFilter = ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
@@ -146,7 +153,7 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fetchedData, fetchErr := ws.fetchFileContents(req.URL.Path)
+	fetchedData, fetchErr := ws.fetchFileContents(ensureSlashSuffix(ws.wwwFolder) + req.URL.Path)
 
 	sentBytes := 0
 

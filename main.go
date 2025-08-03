@@ -14,6 +14,7 @@ func main() {
 	port := parser.Int("p", "port", &argparse.Options{Default: 8040})
 	logFolder := parser.String("l", "logs-folder", &argparse.Options{Default: "logs"})
 	configFolder := parser.String("c", "config-folder", &argparse.Options{Default: "config"})
+	wwwFolder := parser.String("w", "www-folder", &argparse.Options{Default: "www"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -23,6 +24,6 @@ func main() {
 		return
 	}
 
-	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder)
+	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder, *wwwFolder)
 	webserver.Run()
 }
