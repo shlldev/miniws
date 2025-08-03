@@ -5,17 +5,10 @@ import (
 	"os"
 
 	"github.com/akamensky/argparse"
-)
-
-const (
-	FILENAME_ACCESSLOG       string = "access.log"
-	FILENAME_ERRORLOG        string = "error.log"
-	FILENAME_IPFILTER        string = "ipfilter.conf"
-	FILENAME_USERAGENTFILTER string = "useragentfilter.conf"
+	"github.com/shlldev/miniws/miniws"
 )
 
 func main() {
-
 	parser := argparse.NewParser("miniws", "")
 
 	port := parser.Int("p", "port", &argparse.Options{Default: 8040})
@@ -30,7 +23,6 @@ func main() {
 		return
 	}
 
-	webserver := NewWebServer(*port, *logFolder, *configFolder)
+	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder)
 	webserver.Run()
-
 }
