@@ -3,8 +3,10 @@ package miniws
 import (
 	"errors"
 	"log"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -143,6 +145,18 @@ func (ws *WebServer) fetchFileContents(filepath string) ([]byte, error) {
 
 func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 
+	// handle OPTION preflight request
+	if origin := req.Header.Get("Origin"); origin != "" {
+		writer.Header().Set("Access-Control-Allow-Origin", origin)
+		writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		writer.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+
 	respStatusCode := http.StatusOK
 
 	if !ws.isIpValid(req.RemoteAddr) || !ws.isUserAgentValid(req.UserAgent()) {
@@ -158,6 +172,7 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		respStatusCode = http.StatusNotFound
 		writer.WriteHeader(respStatusCode)
 	} else {
+		writer.Header().Add("Content-Type", mime.TypeByExtension(filepath.Ext(req.URL.Path)))
 		sentBytesCount, _ := writer.Write(fetchedData)
 		sentBytes = sentBytesCount
 	}
