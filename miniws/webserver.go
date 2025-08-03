@@ -129,9 +129,6 @@ func (ws *WebServer) isUserAgentValid(userAgent string) bool {
 func (ws *WebServer) fetchFileContents(filepath string) ([]byte, error) {
 	if filepath == "/" {
 		filepath = "."
-	} else {
-		filepath_relative, _ := strings.CutPrefix(filepath, "/")
-		filepath = filepath_relative
 	}
 	fileinfo, err := os.Stat(filepath)
 	if err != nil {
@@ -153,7 +150,7 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fetchedData, fetchErr := ws.fetchFileContents(ensureSlashSuffix(ws.wwwFolder) + req.URL.Path)
+	fetchedData, fetchErr := ws.fetchFileContents(ensureSlashSuffix(ws.wwwFolder) + strings.TrimPrefix(req.URL.Path, "/"))
 
 	sentBytes := 0
 
