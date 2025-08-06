@@ -153,7 +153,7 @@ func (ws *WebServer) _cleanFilepath(filepath string) string {
 		return ""
 	}
 	if fileinfo.IsDir() {
-		filepath += "/index.html"
+		filepath += "index.html"
 	}
 	return filepath
 }
