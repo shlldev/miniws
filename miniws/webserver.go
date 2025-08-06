@@ -31,10 +31,10 @@ type WebServer struct {
 	userAgentFilterMode FilterMode
 }
 
-func NewWebServer(port_ int, logFolder_, configFolder_, wwwFolder_ string) *WebServer {
+func NewWebServer(port_ int, logFolder_, configFolder_, wwwFolder_ string, maxLogBytes_ int64) *WebServer {
 
 	return &WebServer{
-		logger:              NewLogger(logFolder_),
+		logger:              NewLogger(logFolder_, maxLogBytes_),
 		port:                port_,
 		configFolder:        configFolder_,
 		wwwFolder:           wwwFolder_,

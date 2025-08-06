@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -15,12 +17,14 @@ const (
 )
 
 type Logger struct {
-	logFolder string
+	logFolder   string
+	maxLogBytes int64
 }
 
-func NewLogger(logFolder_ string) *Logger {
+func NewLogger(logFolder_ string, maxLogBytes_ int64) *Logger {
 	return &Logger{
-		logFolder: logFolder_,
+		logFolder:   logFolder_,
+		maxLogBytes: maxLogBytes_,
 	}
 }
 
@@ -41,22 +45,34 @@ func (l *Logger) logAccess(
 		remoteAddr, identifier, authuser, timestamp, request, status, bytesSent, referer, user_agent,
 	)
 	os.Mkdir(l.logFolder, os.ModeDir|os.ModePerm)
-	file, err := os.OpenFile(ensureSlashSuffix(l.logFolder)+FILENAME_ACCESSLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
-
-	if err != nil {
-		log.Println("couldn't open log access file at", ensureSlashSuffix(l.logFolder)+FILENAME_ACCESSLOG)
-	}
-	defer file.Close()
-	file.WriteString(out)
+	l.writeToLogFileAndRenameIfBig(FILENAME_ACCESSLOG, out)
 }
 
 func (l *Logger) logError(str string) {
 	os.Mkdir(l.logFolder, PERMS_MKDIR)
-	file, err := os.OpenFile(ensureSlashSuffix(l.logFolder)+FILENAME_ERRORLOG, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
+	l.writeToLogFileAndRenameIfBig(FILENAME_ERRORLOG, str+"\n")
+}
+
+func (l *Logger) writeToLogFileAndRenameIfBig(filename, content string) {
+	file, err := os.OpenFile(ensureSlashSuffix(l.logFolder)+filename, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 
 	if err != nil {
-		log.Println("couldn't open log error file at", ensureSlashSuffix(l.logFolder)+FILENAME_ERRORLOG)
+		log.Println("couldn't open log access file at", ensureSlashSuffix(l.logFolder)+filename)
 	}
+
 	defer file.Close()
-	file.WriteString(str + "\n")
+	file.WriteString(content)
+
+	fileinfo, err := file.Stat()
+
+	if err != nil {
+		log.Println("Error reading access file at", ensureSlashSuffix(l.logFolder)+filename)
+	}
+
+	if fileinfo.Size() > l.maxLogBytes {
+		defer os.Rename(ensureSlashSuffix(
+			l.logFolder)+fileinfo.Name(),
+			ensureSlashSuffix(l.logFolder)+fileinfo.Name()+"."+uuid.NewString(),
+		)
+	}
 }

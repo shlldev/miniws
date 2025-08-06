@@ -13,6 +13,7 @@ const (
 	HELP_LOGFOLDER    string = "the logs folder"
 	HELP_CONFIGFOLDER string = "the configurations folder"
 	HELP_WWWFOLDER    string = "the www folder where miniws will look for files to serve"
+	HELP_MAXLOGBYTES  string = "the maximum bytes after which the log files get split"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	logFolder := parser.String("l", "logs-folder", &argparse.Options{Default: "logs", Help: HELP_LOGFOLDER})
 	configFolder := parser.String("c", "config-folder", &argparse.Options{Default: "config", Help: HELP_CONFIGFOLDER})
 	wwwFolder := parser.String("w", "www-folder", &argparse.Options{Default: ".", Help: HELP_WWWFOLDER})
+	maxLogBytes := parser.Int("b", "max-log-bytes", &argparse.Options{Default: 1024, Help: HELP_WWWFOLDER})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -31,6 +33,6 @@ func main() {
 		return
 	}
 
-	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder, *wwwFolder)
+	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder, *wwwFolder, int64(*maxLogBytes))
 	webserver.Run()
 }
