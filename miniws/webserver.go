@@ -128,19 +128,34 @@ func (ws *WebServer) isUserAgentValid(userAgent string) bool {
 	}
 }
 
-func (ws *WebServer) fetchFileContents(filepath string) ([]byte, error) {
+// fetchFile is a safe wrapper for os.OpenFile, which sanitizes the
+// provided filepath, and, if a folder is passed, it looks for an
+// index.html to fetch.
+//
+// IMPORTANT: remember to close the file after use!!!! fetchFile doesn't
+// do it for you for obvious reasons
+func (ws *WebServer) fetchFile(filepath string) (*os.File, error) {
+	return os.OpenFile(ws._cleanFilepath(filepath), os.O_RDONLY, 0)
+}
+
+func (ws *WebServer) fetchStat(filepath string) (os.FileInfo, error) {
+	clean_filepath := ws._cleanFilepath(filepath)
+	return os.Stat(clean_filepath)
+}
+
+func (ws *WebServer) _cleanFilepath(filepath string) string {
 	if filepath == "/" {
 		filepath = "."
 	}
 	fileinfo, err := os.Stat(filepath)
 	if err != nil {
-		return nil, err
+		ws.logger.logError(err.Error())
+		return ""
 	}
 	if fileinfo.IsDir() {
 		filepath += "/index.html"
 	}
-	return os.ReadFile(filepath)
-
+	return filepath
 }
 
 func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
@@ -164,19 +179,24 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fetchedData, fetchErr := ws.fetchFileContents(ensureSlashSuffix(ws.wwwFolder) + strings.TrimPrefix(req.URL.Path, "/"))
+	fileToFetch := ensureSlashSuffix(ws.wwwFolder) + strings.TrimPrefix(req.URL.Path, "/")
+	fetchedFile, fetchErr := ws.fetchFile(fileToFetch)
+	fetchedFileStat, _ := fetchedFile.Stat()
+	fetchedStat, _ := ws.fetchStat(fileToFetch)
 
-	sentBytes := 0
+	sentBytes := int64(0)
 
 	if ws.logger.logIfError(fetchErr) {
 		respStatusCode = http.StatusNotFound
 		writer.WriteHeader(respStatusCode)
 	} else {
+		http.ServeContent(writer, req, fileToFetch, fetchedStat.ModTime(), fetchedFile)
 		writer.Header().Add("Content-Type", mime.TypeByExtension(filepath.Ext(req.URL.Path)))
-		sentBytesCount, _ := writer.Write(fetchedData)
-		sentBytes = sentBytesCount
+		sentBytes = fetchedFileStat.Size()
+		fetchedFile.Close()
 	}
 
+	// this thing writes to the log using the NCSA Combined Log Format
 	ws.logger.logAccess(
 		strings.Split(req.RemoteAddr, ":")[0], //remote address
 		"-",                                   //identifier (can't get)
@@ -184,7 +204,7 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		time.Now().Format("02/Jan/2006:15:04:05 -0700"),                                      //timestamp
 		req.Method+" "+req.URL.Path+" "+getHttpVersionString(req.ProtoMajor, req.ProtoMinor), //HTTP version
 		strconv.Itoa(respStatusCode),                                                         //response code
-		strconv.Itoa(sentBytes),                                                              //# of sent bytes
+		strconv.Itoa(int(sentBytes)),                                                         //# of sent bytes
 		req.Referer(),                                                                        //Referer
 		req.UserAgent(),                                                                      //User Agent
 	)
