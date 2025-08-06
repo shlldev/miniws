@@ -1,5 +1,5 @@
 # miniws
-miniws (minimalist web sever) is a very simple web server written in golang. its purpose is to be lightweight, easy to configure and easily expandable for personal use. 
+miniws (minimalist web server) is a very simple web server written in golang. its purpose is to be lightweight, easy to configure and easily expandable for personal use. 
 
 ## command line arguments
 ```
