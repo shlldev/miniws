@@ -2,14 +2,13 @@ package miniws
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/google/uuid"
 )
 
 const (
-	FLAGS_LOG_OPEN    int         = os.O_APPEND | os.O_WRONLY | os.O_CREATE
+	FLAGS_LOG_OPEN    int         = os.O_APPEND | os.O_RDWR | os.O_CREATE
 	FLAGS_CONFIG_OPEN int         = os.O_RDONLY | os.O_CREATE
 	PERMS_LOG_OPEN    os.FileMode = os.ModeType | os.ModePerm
 	PERMS_CONFIG_OPEN os.FileMode = os.ModeType | os.ModePerm
@@ -56,8 +55,8 @@ func (l *Logger) logError(str string) {
 func (l *Logger) writeToLogFileAndRenameIfBig(filename, content string) {
 	file, err := os.OpenFile(ensureSlashSuffix(l.logFolder)+filename, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 
-	if err != nil {
-		log.Println("couldn't open log access file at", ensureSlashSuffix(l.logFolder)+filename)
+	if l.logIfError(err) {
+		return
 	}
 
 	defer file.Close()
@@ -65,14 +64,30 @@ func (l *Logger) writeToLogFileAndRenameIfBig(filename, content string) {
 
 	fileinfo, err := file.Stat()
 
-	if err != nil {
-		log.Println("Error reading access file at", ensureSlashSuffix(l.logFolder)+filename)
+	if l.logIfError(err) {
+		return
 	}
 
 	if fileinfo.Size() > l.maxLogBytes {
-		defer os.Rename(ensureSlashSuffix(
-			l.logFolder)+fileinfo.Name(),
-			ensureSlashSuffix(l.logFolder)+fileinfo.Name()+"."+uuid.NewString(),
+
+		var renamedFiledPath string = ensureSlashSuffix(l.logFolder) + fileinfo.Name() + "." + uuid.NewString()
+
+		err_rename := os.Rename(
+			ensureSlashSuffix(l.logFolder)+fileinfo.Name(),
+			renamedFiledPath,
 		)
+
+		if l.logIfError(err_rename) {
+			return
+		}
+
+		compress := &compress{}
+		err_compress := compress.CompressFile(renamedFiledPath)
+
+		if l.logIfError(err_compress) {
+			return
+		}
+
+		defer os.Remove(renamedFiledPath)
 	}
 }
