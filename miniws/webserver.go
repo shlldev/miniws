@@ -88,8 +88,19 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 		panic("Error reading " + fileName + ": " + err.Error())
 	}
 
-	filterLines := strings.Split(string(filterContent), "\n")
-	readFilterMode := filterLines[0]
+	lines := strings.Split(string(filterContent), "\n")
+	var linesNoComments []string = make([]string, 0)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(strings.Split(line, "#")[0]) // only take portion before comments
+		if line == "" {
+			continue
+		}
+		linesNoComments = append(linesNoComments, line)
+	}
+
+	readFilterMode := linesNoComments[0]
+	filter = linesNoComments[1:]
 
 	switch readFilterMode {
 	case "allow":
@@ -99,8 +110,6 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 	default:
 		panic("invalid filter mode for " + fileName + ": use allow|deny")
 	}
-
-	filter = filterLines[1:]
 
 	return filterMode, filter
 
