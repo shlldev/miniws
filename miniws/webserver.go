@@ -60,31 +60,32 @@ func (ws *WebServer) Run() {
 	http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
 }
 
-func (ws *WebServer) parseFilterPanics(filename string) (FilterMode, []string) {
+func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 
 	filterMode := FILTER_MODE_BLACKLIST
 	filter := make([]string, 0)
 
 	os.Mkdir(ws.configFolder, PERMS_MKDIR)
-	fileinfo, err := os.Stat(ensureSlashSuffix(ws.configFolder) + filename)
+	fileinfo, err := os.Stat(filepath.Join(ws.configFolder, fileName))
 
+	fullPath := filepath.Join(ws.configFolder, fileName)
 	if errors.Is(err, os.ErrNotExist) {
-		os.Create(ensureSlashSuffix(ws.configFolder) + filename)
-		fileinfo, err = os.Stat(ensureSlashSuffix(ws.configFolder) + filename)
+		os.Create(fullPath)
+		fileinfo, err = os.Stat(fullPath)
 	}
 
 	if err != nil {
-		panic("Error opening " + filename + ": " + err.Error())
+		panic("Error opening " + fileName + ": " + err.Error())
 	}
 
 	if fileinfo.Size() == 0 { // empty config
 		return filterMode, filter
 	}
 
-	filterContent, err := os.ReadFile(ensureSlashSuffix(ws.configFolder) + filename)
+	filterContent, err := os.ReadFile(fullPath)
 
-	if ws.logger.logIfError(err) {
-		panic("Error reading " + filename + ": " + err.Error())
+	if ws.logger.logIfError(err, fullPath) {
+		panic("Error reading " + fileName + ": " + err.Error())
 	}
 
 	filterLines := strings.Split(string(filterContent), "\n")
@@ -96,7 +97,7 @@ func (ws *WebServer) parseFilterPanics(filename string) (FilterMode, []string) {
 	case "deny":
 		filterMode = FILTER_MODE_BLACKLIST
 	default:
-		panic("invalid filter mode for " + filename + ": use allow|deny")
+		panic("invalid filter mode for " + fileName + ": use allow|deny")
 	}
 
 	filter = filterLines[1:]
@@ -135,27 +136,22 @@ func (ws *WebServer) isUserAgentValid(userAgent string) bool {
 // IMPORTANT: remember to close the file after use!!!! fetchFile doesn't
 // do it for you for obvious reasons
 func (ws *WebServer) fetchFile(filepath string) (*os.File, error) {
-	return os.OpenFile(ws._cleanFilepath(filepath), os.O_RDONLY, 0)
+	return os.OpenFile(ws._addIndexIfDir(filepath), os.O_RDONLY, 0)
 }
 
 func (ws *WebServer) fetchStat(filepath string) (os.FileInfo, error) {
-	clean_filepath := ws._cleanFilepath(filepath)
-	return os.Stat(clean_filepath)
+	return os.Stat(ws._addIndexIfDir(filepath))
 }
 
-func (ws *WebServer) _cleanFilepath(filepath string) string {
-	if filepath == "/" {
-		filepath = "."
-	}
-	fileinfo, err := os.Stat(filepath)
-	if err != nil {
-		ws.logger.logError(err.Error())
+func (ws *WebServer) _addIndexIfDir(filePath string) string {
+	fileinfo, err := os.Stat(filePath)
+	if ws.logger.logIfError(err, filePath) {
 		return ""
 	}
 	if fileinfo.IsDir() {
-		filepath += "index.html"
+		filePath += "/index.html"
 	}
-	return filepath
+	return filePath
 }
 
 func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
@@ -179,14 +175,14 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fileToFetch := ensureSlashSuffix(ws.wwwFolder) + strings.TrimPrefix(req.URL.Path, "/")
+	fileToFetch := filepath.Join(ws.wwwFolder, req.URL.Path)
 	fetchedFile, fetchErr := ws.fetchFile(fileToFetch)
 	fetchedFileStat, _ := fetchedFile.Stat()
 	fetchedStat, _ := ws.fetchStat(fileToFetch)
 
 	sentBytes := int64(0)
 
-	if ws.logger.logIfError(fetchErr) {
+	if ws.logger.logIfError(fetchErr, fileToFetch) {
 		respStatusCode = http.StatusNotFound
 		writer.WriteHeader(respStatusCode)
 	} else {

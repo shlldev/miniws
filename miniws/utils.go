@@ -2,7 +2,6 @@ package miniws
 
 import (
 	"strconv"
-	"strings"
 )
 
 func getHttpVersionString(major, minor int) string {
@@ -14,8 +13,4 @@ func getOrDash(str string) string {
 		return "-"
 	}
 	return str
-}
-
-func ensureSlashSuffix(str string) string {
-	return strings.TrimSuffix(str, "/") + "/"
 }

@@ -3,6 +3,7 @@ package miniws
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 )
@@ -28,9 +29,9 @@ func NewLogger(logFolder_ string, maxLogBytes_ int64) *Logger {
 }
 
 // returns error != nil
-func (l *Logger) logIfError(err error) bool {
+func (l *Logger) logIfError(err error, filePath string) bool {
 	if err != nil {
-		l.logError(err.Error())
+		l.logError(filePath + " " + err.Error())
 		return true
 	}
 	return false
@@ -52,10 +53,11 @@ func (l *Logger) logError(str string) {
 	l.writeToLogFileAndRenameIfBig(FILENAME_ERRORLOG, str+"\n")
 }
 
-func (l *Logger) writeToLogFileAndRenameIfBig(filename, content string) {
-	file, err := os.OpenFile(ensureSlashSuffix(l.logFolder)+filename, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
+func (l *Logger) writeToLogFileAndRenameIfBig(fileName, content string) {
+	fullPath := filepath.Join(l.logFolder, fileName)
+	file, err := os.OpenFile(fullPath, FLAGS_LOG_OPEN, PERMS_LOG_OPEN)
 
-	if l.logIfError(err) {
+	if l.logIfError(err, fullPath) {
 		return
 	}
 
@@ -64,27 +66,27 @@ func (l *Logger) writeToLogFileAndRenameIfBig(filename, content string) {
 
 	fileinfo, err := file.Stat()
 
-	if l.logIfError(err) {
+	if l.logIfError(err, fullPath) {
 		return
 	}
 
 	if fileinfo.Size() > l.maxLogBytes {
 
-		var renamedFiledPath string = ensureSlashSuffix(l.logFolder) + fileinfo.Name() + "." + uuid.NewString()
+		var renamedFiledPath string = fullPath + "." + uuid.NewString()
 
 		err_rename := os.Rename(
-			ensureSlashSuffix(l.logFolder)+fileinfo.Name(),
+			fullPath,
 			renamedFiledPath,
 		)
 
-		if l.logIfError(err_rename) {
+		if l.logIfError(err_rename, fullPath) {
 			return
 		}
 
 		compress := &compress{}
 		err_compress := compress.CompressFile(renamedFiledPath)
 
-		if l.logIfError(err_compress) {
+		if l.logIfError(err_compress, renamedFiledPath) {
 			return
 		}
 
