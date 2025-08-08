@@ -123,18 +123,28 @@ func (ws *WebServer) isIpValid(ip string) bool {
 	case FILTER_MODE_BLACKLIST:
 		return !slices.Contains(ws.ipFilter, ip)
 	default:
-		return false
+		return false //if something went wrong with conf parsing
 	}
 }
 
 func (ws *WebServer) isUserAgentValid(userAgent string) bool {
 	switch ws.userAgentFilterMode {
 	case FILTER_MODE_WHITELIST:
-		return slices.Contains(ws.userAgentFilter, userAgent)
-	case FILTER_MODE_BLACKLIST:
-		return !slices.Contains(ws.userAgentFilter, userAgent)
-	default:
+		for _, userAgentString := range ws.userAgentFilter {
+			if strings.Contains(userAgentString, userAgent) {
+				return true
+			}
+		}
 		return false
+	case FILTER_MODE_BLACKLIST:
+		for _, userAgentString := range ws.userAgentFilter {
+			if strings.Contains(userAgentString, userAgent) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false //if something went wrong with conf parsing
 	}
 }
 
