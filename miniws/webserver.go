@@ -130,15 +130,15 @@ func (ws *WebServer) isIpValid(ip string) bool {
 func (ws *WebServer) isUserAgentValid(userAgent string) bool {
 	switch ws.userAgentFilterMode {
 	case FILTER_MODE_WHITELIST:
-		for _, userAgentString := range ws.userAgentFilter {
-			if strings.Contains(userAgentString, userAgent) {
+		for _, userAgentFiltered := range ws.userAgentFilter {
+			if strings.Contains(userAgent, userAgentFiltered) {
 				return true
 			}
 		}
 		return false
 	case FILTER_MODE_BLACKLIST:
-		for _, userAgentString := range ws.userAgentFilter {
-			if strings.Contains(userAgentString, userAgent) {
+		for _, userAgentFiltered := range ws.userAgentFilter {
+			if strings.Contains(userAgent, userAgentFiltered) {
 				return false
 			}
 		}
