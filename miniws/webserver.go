@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/wneessen/go-fileperm"
 )
 
 const (
@@ -47,9 +49,18 @@ func NewWebServer(port_ int, logFolder_, configFolder_, wwwFolder_ string, maxLo
 
 func (ws *WebServer) Run() {
 
-	_, err := os.Stat(ws.wwwFolder)
+	_, err := os.Lstat(ws.wwwFolder)
 	if errors.Is(err, os.ErrNotExist) {
 		log.Fatalln("Fatal: www folder " + ws.wwwFolder + " does not exist")
+	} else if err != nil {
+		log.Fatalln("Fatal: " + err.Error())
+	}
+	perms, err := fileperm.New(ws.wwwFolder)
+	if err != nil {
+		log.Fatalln("Fatal: " + err.Error())
+	}
+	if !perms.UserReadable() {
+		log.Fatalln("Fatal: missing permissions to read www folder")
 	}
 
 	ws.ipFilterMode, ws.ipFilter = ws.parseFilterPanics(FILENAME_IPFILTER)
