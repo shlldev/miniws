@@ -1,6 +1,7 @@
 package miniws
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"mime"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sockets"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +20,8 @@ import (
 const (
 	FILTER_MODE_WHITELIST FilterMode = 0
 	FILTER_MODE_BLACKLIST FilterMode = 1
+
+	SOCKET_PATH string = "/tmp/miniws_commands_server"
 )
 
 type FilterMode int
@@ -66,12 +70,30 @@ func (ws *WebServer) Run() {
 	ws.ipFilterMode, ws.ipFilter = ws.parseFilterPanics(FILENAME_IPFILTER)
 	ws.userAgentFilterMode, ws.userAgentFilter = ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
 
+	socketserver := sockets.Server{}
+	go socketserver.Start(ws.recvBind, "unix", SOCKET_PATH)
+
 	http.HandleFunc("/", ws.get)
 	log.Println("Server started on port " + strconv.Itoa(ws.port))
 	http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
 }
 
+func (ws *WebServer) recvBind(command string, arguments []string) byte {
+	command = string(bytes.Trim([]byte(command), "\x00"))
+	switch command {
+	case "reload":
+		ws.parseFilterPanics(FILENAME_IPFILTER)
+		ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
+		return byte(1)
+	default:
+		log.Println("Error: unknown command", command, arguments)
+		return byte(0)
+	}
+}
+
 func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
+
+	log.Println("loaded filter: ", fileName)
 
 	filterMode := FILTER_MODE_BLACKLIST
 	filter := make([]string, 0)

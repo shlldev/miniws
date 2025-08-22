@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"sockets"
+
+	"miniws"
 
 	"github.com/akamensky/argparse"
-	"github.com/shlldev/miniws/miniws"
 )
 
 const (
@@ -14,11 +16,13 @@ const (
 	HELP_CONFIGFOLDER string = "the configurations folder"
 	HELP_WWWFOLDER    string = "the www folder where miniws will look for files to serve"
 	HELP_MAXLOGBYTES  string = "the maximum bytes after which the log files get split"
+	HELP_SIGNAL       string = "runs the executable in command mode, meaning it will just send a command to the already running miniws server"
 )
 
 func main() {
 	parser := argparse.NewParser("miniws", "")
 
+	signal := parser.String("s", "signal", &argparse.Options{Default: "", Help: HELP_SIGNAL})
 	port := parser.Int("p", "port", &argparse.Options{Default: 8040, Help: HELP_PORT})
 	logFolder := parser.String("l", "logs-folder", &argparse.Options{Default: "logs", Help: HELP_LOGFOLDER})
 	configFolder := parser.String("c", "config-folder", &argparse.Options{Default: "config", Help: HELP_CONFIGFOLDER})
@@ -33,6 +37,13 @@ func main() {
 		return
 	}
 
+	if *signal != "" {
+		client := sockets.Client{}
+		client.OneShotWrite("unix", miniws.SOCKET_PATH, []byte(*signal))
+		return
+	}
+
 	webserver := miniws.NewWebServer(*port, *logFolder, *configFolder, *wwwFolder, int64(*maxLogBytes))
 	webserver.Run()
+
 }
