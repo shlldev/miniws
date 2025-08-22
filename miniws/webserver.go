@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,40 +23,46 @@ const (
 
 type FilterMode int
 
+type WebServerConfig struct {
+	LogFolder               string
+	ConfigFolder            string
+	WWWFolder               string
+	Port                    uint16
+	MaxBytesPerLogFile      uint64
+	MaxConnectionsPerMinute uint64
+}
+
 type WebServer struct {
 	logger              *Logger
-	port                int
-	configFolder        string
-	wwwFolder           string
+	cfg                 WebServerConfig
 	ipFilter            []string
 	userAgentFilter     []string
 	ipFilterMode        FilterMode
 	userAgentFilterMode FilterMode
+	clientLimiter       *clientRateLimiter
 }
 
-func NewWebServer(port_ int, logFolder_, configFolder_, wwwFolder_ string, maxLogBytes_ int64) *WebServer {
-
+func NewWebServer(cfg WebServerConfig) *WebServer {
 	return &WebServer{
-		logger:              NewLogger(logFolder_, maxLogBytes_),
-		port:                port_,
-		configFolder:        configFolder_,
-		wwwFolder:           wwwFolder_,
+		logger:              NewLogger(cfg.LogFolder, cfg.MaxBytesPerLogFile),
+		cfg:                 cfg,
 		ipFilter:            make([]string, 0),
 		userAgentFilter:     make([]string, 0),
 		ipFilterMode:        FILTER_MODE_BLACKLIST,
 		userAgentFilterMode: FILTER_MODE_BLACKLIST,
+		clientLimiter:       newClientRateLimiter(float64(cfg.MaxConnectionsPerMinute)),
 	}
 }
 
 func (ws *WebServer) Run() {
 
-	_, err := os.Lstat(ws.wwwFolder)
+	_, err := os.Lstat(ws.cfg.WWWFolder)
 	if errors.Is(err, os.ErrNotExist) {
-		log.Fatalln("Fatal: www folder " + ws.wwwFolder + " does not exist")
+		log.Fatalln("Fatal: www folder " + ws.cfg.WWWFolder + " does not exist")
 	} else if err != nil {
 		log.Fatalln("Fatal: " + err.Error())
 	}
-	perms, err := fileperm.New(ws.wwwFolder)
+	perms, err := fileperm.New(ws.cfg.WWWFolder)
 	if err != nil {
 		log.Fatalln("Fatal: " + err.Error())
 	}
@@ -67,8 +74,9 @@ func (ws *WebServer) Run() {
 	ws.userAgentFilterMode, ws.userAgentFilter = ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
 
 	http.HandleFunc("/", ws.get)
-	log.Println("Server started on port " + strconv.Itoa(ws.port))
-	http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
+	portStr := strconv.FormatUint(uint64(ws.cfg.Port), 10)
+	log.Println("Server started on port " + portStr)
+	http.ListenAndServe(":"+portStr, nil)
 }
 
 func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
@@ -76,10 +84,10 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 	filterMode := FILTER_MODE_BLACKLIST
 	filter := make([]string, 0)
 
-	os.Mkdir(ws.configFolder, PERMS_MKDIR)
-	fileinfo, err := os.Stat(filepath.Join(ws.configFolder, fileName))
+	os.Mkdir(ws.cfg.ConfigFolder, PERMS_MKDIR)
+	fileinfo, err := os.Stat(filepath.Join(ws.cfg.ConfigFolder, fileName))
 
-	fullPath := filepath.Join(ws.configFolder, fileName)
+	fullPath := filepath.Join(ws.cfg.ConfigFolder, fileName)
 	if errors.Is(err, os.ErrNotExist) {
 		os.Create(fullPath)
 		fileinfo, err = os.Stat(fullPath)
@@ -126,19 +134,23 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 
 }
 
-func (ws *WebServer) isIpValid(ip string) bool {
-	ip = strings.Split(ip, ":")[0] // remove port
+func (ws *WebServer) isIpAllowed(ip string) bool {
+	hostIp, _, err := net.SplitHostPort(ip)
+	if err != nil && !strings.Contains(ip, ":") {
+		log.Println(err)
+		return false
+	}
 	switch ws.ipFilterMode {
 	case FILTER_MODE_WHITELIST:
-		return slices.Contains(ws.ipFilter, ip)
+		return slices.Contains(ws.ipFilter, hostIp)
 	case FILTER_MODE_BLACKLIST:
-		return !slices.Contains(ws.ipFilter, ip)
+		return !slices.Contains(ws.ipFilter, hostIp)
 	default:
 		return false //if something went wrong with conf parsing
 	}
 }
 
-func (ws *WebServer) isUserAgentValid(userAgent string) bool {
+func (ws *WebServer) isUserAgentAllowed(userAgent string) bool {
 	switch ws.userAgentFilterMode {
 	case FILTER_MODE_WHITELIST:
 		for _, userAgentFiltered := range ws.userAgentFilter {
@@ -200,12 +212,19 @@ func (ws *WebServer) get(writer http.ResponseWriter, req *http.Request) {
 
 	respStatusCode := http.StatusOK
 
-	if !ws.isIpValid(req.RemoteAddr) || !ws.isUserAgentValid(req.UserAgent()) {
+	// check that IP and User Agent of client are whitelisted, or not blacklisted
+	if !ws.isIpAllowed(req.RemoteAddr) || !ws.isUserAgentAllowed(req.UserAgent()) {
+
 		writer.WriteHeader(http.StatusForbidden)
 		return
 	}
+	// check that the client IP has not been sending too many requests recently
+	if !ws.clientLimiter.canConnect(req.RemoteAddr) {
+		writer.WriteHeader(http.StatusTooManyRequests)
+		return
+	}
 
-	fileToFetch := filepath.Join(ws.wwwFolder, req.URL.Path)
+	fileToFetch := filepath.Join(ws.cfg.WWWFolder, req.URL.Path)
 	fetchedFile, fetchErr := ws.fetchFile(fileToFetch)
 	fetchedFileStat, _ := fetchedFile.Stat()
 	fetchedStat, _ := ws.fetchStat(fileToFetch)

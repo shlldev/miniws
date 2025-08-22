@@ -18,10 +18,10 @@ const (
 
 type Logger struct {
 	logFolder   string
-	maxLogBytes int64
+	maxLogBytes uint64
 }
 
-func NewLogger(logFolder_ string, maxLogBytes_ int64) *Logger {
+func NewLogger(logFolder_ string, maxLogBytes_ uint64) *Logger {
 	return &Logger{
 		logFolder:   logFolder_,
 		maxLogBytes: maxLogBytes_,
@@ -70,7 +70,7 @@ func (l *Logger) writeToLogFileAndRenameIfBig(fileName, content string) {
 		return
 	}
 
-	if fileinfo.Size() > l.maxLogBytes {
+	if uint64(fileinfo.Size()) > l.maxLogBytes {
 
 		var renamedFiledPath string = fullPath + "." + uuid.NewString()
 
