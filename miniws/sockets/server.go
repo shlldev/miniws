@@ -12,7 +12,7 @@ import (
 
 type Server struct{}
 
-func (s *Server) Start(RecvBind func(string, []string) byte, network, address string) int {
+func (s *Server) Start(recvBind func(string, []string) bool, network, address string) int {
 	socket, err := net.Listen(network, address)
 	logplus.LogIfErrorFatal(err)
 
@@ -49,10 +49,17 @@ func (s *Server) Start(RecvBind func(string, []string) byte, network, address st
 				logplus.LogIfErrorFatal(err)
 				fullstring := string(buffer)
 				arguments := strings.Split(fullstring, " ")
-				ret := RecvBind(arguments[0], arguments[1:])
-				conn.Write([]byte{ret})
+				ret := recvBind(arguments[0], arguments[1:])
+				conn.Write([]byte{bool2byte(ret)})
 				buffer.Zero()
 			}
 		}(conn)
 	}
+}
+
+func bool2byte(b bool) byte {
+	if b {
+		return 1
+	}
+	return 0
 }

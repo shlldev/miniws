@@ -70,6 +70,7 @@ func (ws *WebServer) Run() {
 	ws.ipFilterMode, ws.ipFilter = ws.parseFilterPanics(FILENAME_IPFILTER)
 	ws.userAgentFilterMode, ws.userAgentFilter = ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
 
+	// create and start a unix socket server (to accept signal from another process using -s <cmd>)
 	socketserver := sockets.Server{}
 	go socketserver.Start(ws.recvBind, "unix", SOCKET_PATH)
 
@@ -78,16 +79,16 @@ func (ws *WebServer) Run() {
 	http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
 }
 
-func (ws *WebServer) recvBind(command string, arguments []string) byte {
+func (ws *WebServer) recvBind(command string, arguments []string) bool {
 	command = string(bytes.Trim([]byte(command), "\x00"))
 	switch command {
 	case "reload":
 		ws.parseFilterPanics(FILENAME_IPFILTER)
 		ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
-		return byte(1)
+		return true
 	default:
 		log.Println("Error: unknown command", command, arguments)
-		return byte(0)
+		return false
 	}
 }
 

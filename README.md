@@ -1,14 +1,19 @@
 # miniws
-miniws (minimalist web server) is a very simple web server written in golang. its purpose is to be lightweight, easy to configure and easily expandable for personal use. 
+miniws (minimal web server) is a very simple web server written in golang. its purpose is to be lightweight, easy to configure and easily expandable for personal use. 
 
 ## command line arguments
 ```
-  -h  --help           Print help information 
+  -h  --help           Print help information
+  -s  --signal         runs the executable in command mode, meaning it will
+                       just send a command to an already running miniws server
+                       process, then terminate. Default: 
   -p  --port           what port miniws will run on. Default: 8040
   -l  --logs-folder    the logs folder. Default: logs
   -c  --config-folder  the configurations folder. Default: config
   -w  --www-folder     the www folder where miniws will look for files to
                        serve. Default: .
+  -b  --max-log-bytes  the maximum bytes after which the log files get split.
+                       Default: 1048576        
 ```
 
 ## how to configure
