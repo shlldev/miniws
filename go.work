@@ -3,6 +3,5 @@ go 1.24.5
 use (
     .
     ./miniws
-    ./miniws/sockets
-    ./miniws/sockets/logplus
+    ./miniws/ipc
 )

@@ -1,6 +1,8 @@
 # miniws
 miniws (minimal web server) is a very simple web server written in golang. its purpose is to be lightweight, easy to configure and easily expandable for personal use. 
 
+all the help you'll ever need is in this README, and in the help text (`miniws -h`). there is no other documentation you have to read.
+
 ## command line arguments
 ```
   -h  --help           Print help information
@@ -20,6 +22,10 @@ miniws (minimal web server) is a very simple web server written in golang. its p
 in your config folder you will find `ipfilter.conf` and `useragentfilter.conf`
 
 both files use the same format: specify `allow|deny` in the first line to tell miniws to treat the file as a whitelist or a blacklist, then specify one ip/user-agent per line. 
+
+## signals
+you can pass the following signals when using -s:
+- `reload`: reloads the configuration files from disk
 
 ## logging
 

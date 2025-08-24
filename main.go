@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"ipc"
 	"os"
-	"sockets"
 
 	"miniws"
 
@@ -44,7 +44,7 @@ func main() {
 
 	// signal mode
 	if *signal != "" {
-		client := sockets.Client{}
+		client := ipc.Client{}
 		client.OneShotWrite("unix", miniws.SOCKET_PATH, []byte(*signal))
 		return
 	}

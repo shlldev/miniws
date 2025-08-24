@@ -3,13 +3,13 @@ package miniws
 import (
 	"bytes"
 	"errors"
+	"ipc"
 	"log"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
-	"sockets"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	FILTER_MODE_INVALID   FilterMode = -1
 	FILTER_MODE_WHITELIST FilterMode = 0
 	FILTER_MODE_BLACKLIST FilterMode = 1
 
@@ -67,24 +68,37 @@ func (ws *WebServer) Run() {
 		log.Fatalln("Fatal: missing permissions to read www folder")
 	}
 
-	ws.ipFilterMode, ws.ipFilter = ws.parseFilterPanics(FILENAME_IPFILTER)
-	ws.userAgentFilterMode, ws.userAgentFilter = ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
+	ipFilterMode, ipFilter, err := ws.parseFilter(FILENAME_IPFILTER)
+	if err != nil {
+		log.Fatalln("Fatal: IP filter invalid:", err)
+	}
+	ws.ipFilterMode = ipFilterMode
+	ws.ipFilter = ipFilter
+	userAgentFilterMode, userAgentFilter, err := ws.parseFilter(FILENAME_USERAGENTFILTER)
+	if err != nil {
+		log.Fatalln("Fatal: UserAgent filter invalid:", err)
+	}
+	ws.userAgentFilter = userAgentFilter
+	ws.userAgentFilterMode = userAgentFilterMode
 
 	// create and start a unix socket server (to accept signal from another process using -s <cmd>)
-	socketserver := sockets.Server{}
-	go socketserver.Start(ws.recvBind, "unix", SOCKET_PATH)
+	ipcServer := ipc.Server{}
+	go ipcServer.Start(ws.onRecieveSignal, "unix", SOCKET_PATH)
 
 	http.HandleFunc("/", ws.get)
-	log.Println("Server started on port " + strconv.Itoa(ws.port))
-	http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
+	log.Println("Server starting on port " + strconv.Itoa(ws.port) + "...")
+	httpErr := http.ListenAndServe(":"+strconv.Itoa(ws.port), nil)
+	if httpErr != nil {
+		log.Fatalln(httpErr)
+	}
 }
 
-func (ws *WebServer) recvBind(command string, arguments []string) bool {
+func (ws *WebServer) onRecieveSignal(command string, arguments []string) bool {
 	command = string(bytes.Trim([]byte(command), "\x00"))
 	switch command {
 	case "reload":
-		ws.parseFilterPanics(FILENAME_IPFILTER)
-		ws.parseFilterPanics(FILENAME_USERAGENTFILTER)
+		ws.parseFilter(FILENAME_IPFILTER)
+		ws.parseFilter(FILENAME_USERAGENTFILTER)
 		return true
 	default:
 		log.Println("Error: unknown command", command, arguments)
@@ -92,7 +106,7 @@ func (ws *WebServer) recvBind(command string, arguments []string) bool {
 	}
 }
 
-func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
+func (ws *WebServer) parseFilter(fileName string) (FilterMode, []string, error) {
 
 	log.Println("loaded filter: ", fileName)
 
@@ -109,17 +123,19 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 	}
 
 	if err != nil {
-		panic("Error opening " + fileName + ": " + err.Error())
+		return FILTER_MODE_INVALID, nil,
+			errors.New("Error opening " + fileName + ": " + err.Error())
 	}
 
 	if fileinfo.Size() == 0 { // empty config
-		return filterMode, filter
+		return filterMode, filter, nil
 	}
 
 	filterContent, err := os.ReadFile(fullPath)
 
 	if ws.logger.logIfError(err, fullPath) {
-		panic("Error reading " + fileName + ": " + err.Error())
+		return FILTER_MODE_INVALID, nil,
+			errors.New("Error reading " + fileName + ": " + err.Error())
 	}
 
 	lines := strings.Split(string(filterContent), "\n")
@@ -142,10 +158,11 @@ func (ws *WebServer) parseFilterPanics(fileName string) (FilterMode, []string) {
 	case "deny":
 		filterMode = FILTER_MODE_BLACKLIST
 	default:
-		panic("invalid filter mode for " + fileName + ": use allow|deny")
+		return FILTER_MODE_INVALID, nil,
+			errors.New("invalid filter mode for " + fileName + ": use allow|deny")
 	}
 
-	return filterMode, filter
+	return filterMode, filter, nil
 
 }
 

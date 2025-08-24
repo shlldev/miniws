@@ -1,8 +1,7 @@
-package sockets
+package ipc
 
 import (
 	"io"
-	"logplus"
 	"net"
 	"os"
 	"os/signal"
@@ -14,7 +13,7 @@ type Server struct{}
 
 func (s *Server) Start(recvBind func(string, []string) bool, network, address string) int {
 	socket, err := net.Listen(network, address)
-	logplus.LogIfErrorFatal(err)
+	LogIfErrorFatal(err)
 
 	//Cleanup the socket file
 	c := make(chan os.Signal, 1)
@@ -29,7 +28,7 @@ func (s *Server) Start(recvBind func(string, []string) bool, network, address st
 
 		//Accept connection
 		conn, err := socket.Accept()
-		logplus.LogIfErrorFatal(err)
+		LogIfErrorFatal(err)
 
 		//Handle the connection
 		//in a separate goroutine
@@ -46,20 +45,17 @@ func (s *Server) Start(recvBind func(string, []string) bool, network, address st
 					conn.Close()
 					break
 				}
-				logplus.LogIfErrorFatal(err)
+				LogIfErrorFatal(err)
 				fullstring := string(buffer)
 				arguments := strings.Split(fullstring, " ")
 				ret := recvBind(arguments[0], arguments[1:])
-				conn.Write([]byte{bool2byte(ret)})
+				if ret {
+					conn.Write([]byte{1})
+				} else {
+					conn.Write([]byte{0})
+				}
 				buffer.Zero()
 			}
 		}(conn)
 	}
-}
-
-func bool2byte(b bool) byte {
-	if b {
-		return 1
-	}
-	return 0
 }

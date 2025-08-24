@@ -1,4 +1,4 @@
-package logplus
+package ipc
 
 import "log"
 

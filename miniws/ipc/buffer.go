@@ -1,4 +1,4 @@
-package sockets
+package ipc
 
 type buffer []byte
 
