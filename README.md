@@ -31,6 +31,6 @@ you can pass the following signals when using -s:
 
 in your logging folder you will find `access.log` and `errors.log`
 
-`access.log` utilizes the NCSA **[Combined Log Format](http://fileformats.archiveteam.org/wiki/Combined_Log_Format)**
+`access.log` utilizes the NCSA **[Combined Log Format](http://fileformats.archiveteam.org/wiki/Combined_Log_Format)** (which means you can pass this file to a program like [GoAccess](https://goaccess.io/) for some data about who's accessing your website)
 
 `errors.log` is for golang errors
